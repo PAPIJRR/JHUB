@@ -1,4 +1,3 @@
--- JHUB Mega Script v2 | All Features + Rainbow Platform + Rainbow UI
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
