@@ -1,9 +1,8 @@
+-- JHUB Mega Script v4 | Part 1
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
 
 -- ===== GUI =====
 local gui = Instance.new("ScreenGui")
@@ -12,14 +11,13 @@ gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0, 340, 0, 300)
-main.Position = UDim2.new(0.5, -170, 0.5, -150)
+main.Size = UDim2.new(0, 340, 0, 350)
+main.Position = UDim2.new(0.5, -170, 0.5, -175)
 main.BackgroundColor3 = Color3.fromRGB(18,18,18)
 main.BorderSizePixel = 0
 main.Parent = gui
 Instance.new("UICorner", main).CornerRadius = UDim.new(0,14)
 
--- ===== TOP BAR =====
 local top = Instance.new("Frame")
 top.Size = UDim2.new(1,0,0,45)
 top.BackgroundColor3 = Color3.fromRGB(25,25,25)
@@ -36,32 +34,32 @@ title.BackgroundTransparency = 1
 title.Parent = top
 
 -- ===== DRAG UI =====
-local dragging, dragStart, startPos
-top.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-		dragStart = input.Position
-		startPos = main.Position
-	end
-end)
-
-UIS.InputChanged:Connect(function(input)
-	if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
-		local delta = input.Position - dragStart
-		main.Position = UDim2.new(
-			startPos.X.Scale,
-			startPos.X.Offset + delta.X,
-			startPos.Y.Scale,
-			startPos.Y.Offset + delta.Y
-		)
-	end
-end)
-
-UIS.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = false
-	end
-end)
+do
+	local dragging, dragStart, startPos
+	top.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = main.Position
+		end
+	end)
+	UIS.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - dragStart
+			main.Position = UDim2.new(
+				startPos.X.Scale,
+				startPos.X.Offset + delta.X,
+				startPos.Y.Scale,
+				startPos.Y.Offset + delta.Y
+			)
+		end
+	end)
+	UIS.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+end
 
 -- ===== TABS =====
 local tabBar = Instance.new("Frame")
@@ -111,13 +109,40 @@ end
 movementTabBtn.MouseButton1Click:Connect(function() showTab(movementTab) end)
 playerTabBtn.MouseButton1Click:Connect(function() showTab(playerTab) end)
 
--- ===== MOVEMENT TAB FEATURES =====
--- Walk Speed
-local currentSpeed = 16
-local minSpeed = 8
-local maxSpeed = 80
-humanoid.WalkSpeed = currentSpeed
+-- ===== RAINBOW UI =====
+do
+	spawn(function()
+		local hue = 0
+		while true do
+			local color = Color3.fromHSV(hue,1,1)
+			main.BackgroundColor3 = color
+			top.BackgroundColor3 = color
+			for _, btn in pairs(main:GetDescendants()) do
+				if btn:IsA("TextButton") then
+					btn.BackgroundColor3 = color
+				end
+			end
+			hue = hue + 0.005
+			if hue > 1 then hue = 0 end
+			task.wait(0.03)
+		end
+	end)
+end
 
+-- ===== HELPER =====
+local function getHumanoid()
+	local char = player.Character or player.CharacterAdded:Wait()
+	local hum = char:WaitForChild("Humanoid")
+	local root = char:WaitForChild("HumanoidRootPart")
+	return hum, root
+end
+
+-- ===== MOVEMENT TAB =====
+local currentSpeed = 16
+local currentJump = 50
+local wallJumpEnabled = false
+
+-- Speed Label
 local speedLabel = Instance.new("TextLabel")
 speedLabel.Size = UDim2.new(1,0,0,30)
 speedLabel.Position = UDim2.new(0,0,0.05,0)
@@ -128,172 +153,167 @@ speedLabel.TextColor3 = Color3.fromRGB(255,255,255)
 speedLabel.BackgroundTransparency = 1
 speedLabel.Parent = movementTab
 
-local minus = Instance.new("TextButton")
-minus.Size = UDim2.new(0.35,0,0,45)
-minus.Position = UDim2.new(0.1,0,0.15,0)
-minus.Text = "-"
-minus.Font = Enum.Font.GothamBold
-minus.TextSize = 28
-minus.TextColor3 = Color3.fromRGB(255,255,255)
-minus.BackgroundColor3 = Color3.fromRGB(40,40,40)
-minus.Parent = movementTab
-Instance.new("UICorner", minus).CornerRadius = UDim.new(0,10)
+-- Speed Buttons
+do
+	local minus = Instance.new("TextButton")
+	minus.Size = UDim2.new(0.35,0,0,45)
+	minus.Position = UDim2.new(0.1,0,0.15,0)
+	minus.Text = "-"
+	minus.Font = Enum.Font.GothamBold
+	minus.TextSize = 28
+	minus.TextColor3 = Color3.fromRGB(255,255,255)
+	minus.BackgroundColor3 = Color3.fromRGB(40,40,40)
+	minus.Parent = movementTab
+	Instance.new("UICorner", minus).CornerRadius = UDim.new(0,10)
 
-local plus = Instance.new("TextButton")
-plus.Size = UDim2.new(0.35,0,0,45)
-plus.Position = UDim2.new(0.55,0,0.15,0)
-plus.Text = "+"
-plus.Font = Enum.Font.GothamBold
-plus.TextSize = 28
-plus.TextColor3 = Color3.fromRGB(255,255,255)
-plus.BackgroundColor3 = Color3.fromRGB(40,40,40)
-plus.Parent = movementTab
-Instance.new("UICorner", plus).CornerRadius = UDim.new(0,10)
+	local plus = Instance.new("TextButton")
+	plus.Size = UDim2.new(0.35,0,0,45)
+	plus.Position = UDim2.new(0.55,0,0.15,0)
+	plus.Text = "+"
+	plus.Font = Enum.Font.GothamBold
+	plus.TextSize = 28
+	plus.TextColor3 = Color3.fromRGB(255,255,255)
+	plus.BackgroundColor3 = Color3.fromRGB(40,40,40)
+	plus.Parent = movementTab
+	Instance.new("UICorner", plus).CornerRadius = UDim.new(0,10)
 
-minus.MouseButton1Click:Connect(function()
-	currentSpeed = math.max(minSpeed, currentSpeed - 2)
-	humanoid.WalkSpeed = currentSpeed
-	speedLabel.Text = "Speed: "..currentSpeed
-end)
-
-plus.MouseButton1Click:Connect(function()
-	currentSpeed = math.min(maxSpeed, currentSpeed + 2)
-	humanoid.WalkSpeed = currentSpeed
-	speedLabel.Text = "Speed: "..currentSpeed
-end)
-
--- Booster Button
-local boosterBtn = Instance.new("TextButton")
-boosterBtn.Size = UDim2.new(0.8,0,0,45)
-boosterBtn.Position = UDim2.new(0.1,0,0.3,0)
-boosterBtn.Text = "Booster (58)"
-boosterBtn.Font = Enum.Font.GothamBold
-boosterBtn.TextSize = 18
-boosterBtn.TextColor3 = Color3.fromRGB(255,255,255)
-boosterBtn.BackgroundColor3 = Color3.fromRGB(170,0,255)
-boosterBtn.Parent = movementTab
-Instance.new("UICorner", boosterBtn).CornerRadius = UDim.new(0,10)
-
-boosterBtn.MouseButton1Click:Connect(function()
-	currentSpeed = 58
-	humanoid.WalkSpeed = currentSpeed
-	speedLabel.Text = "Speed: "..currentSpeed
-end)
-
--- Jump Height Changer
-local currentJump = humanoid.JumpPower or 50
-local minJump = 20
-local maxJump = 150
-
-local jumpLabel = Instance.new("TextLabel")
-jumpLabel.Size = UDim2.new(1,0,0,30)
-jumpLabel.Position = UDim2.new(0,0,0.45,0)
-jumpLabel.Text = "Jump: "..currentJump
-jumpLabel.Font = Enum.Font.GothamBold
-jumpLabel.TextSize = 16
-jumpLabel.TextColor3 = Color3.fromRGB(255,255,255)
-jumpLabel.BackgroundTransparency = 1
-jumpLabel.TextXAlignment = Enum.TextXAlignment.Left
-jumpLabel.Parent = movementTab
-
-local jumpMinus = Instance.new("TextButton")
-jumpMinus.Size = UDim2.new(0.35,0,0,45)
-jumpMinus.Position = UDim2.new(0.1,0,0.5,0)
-jumpMinus.Text = "-"
-jumpMinus.Font = Enum.Font.GothamBold
-jumpMinus.TextSize = 28
-jumpMinus.TextColor3 = Color3.fromRGB(255,255,255)
-jumpMinus.BackgroundColor3 = Color3.fromRGB(40,40,40)
-jumpMinus.Parent = movementTab
-Instance.new("UICorner", jumpMinus).CornerRadius = UDim.new(0,10)
-
-local jumpPlus = Instance.new("TextButton")
-jumpPlus.Size = UDim2.new(0.35,0,0,45)
-jumpPlus.Position = UDim2.new(0.55,0,0.5,0)
-jumpPlus.Text = "+"
-jumpPlus.Font = Enum.Font.GothamBold
-jumpPlus.TextSize = 28
-jumpPlus.TextColor3 = Color3.fromRGB(255,255,255)
-jumpPlus.BackgroundColor3 = Color3.fromRGB(40,40,40)
-jumpPlus.Parent = movementTab
-Instance.new("UICorner", jumpPlus).CornerRadius = UDim.new(0,10)
-
-jumpMinus.MouseButton1Click:Connect(function()
-	currentJump = math.max(minJump, currentJump - 5)
-	humanoid.JumpPower = currentJump
-	jumpLabel.Text = "Jump: "..currentJump
-end)
-
-jumpPlus.MouseButton1Click:Connect(function()
-	currentJump = math.min(maxJump, currentJump + 5)
-	humanoid.JumpPower = currentJump
-	jumpLabel.Text = "Jump: "..currentJump
-end)
-
--- Wall Jump
-local wallJumpBtn = Instance.new("TextButton")
-wallJumpBtn.Size = UDim2.new(0.8,0,0,45)
-wallJumpBtn.Position = UDim2.new(0.1,0,0.65,0)
-wallJumpBtn.Text = "Wall Jump: OFF"
-wallJumpBtn.Font = Enum.Font.GothamBold
-wallJumpBtn.TextSize = 18
-wallJumpBtn.TextColor3 = Color3.fromRGB(255,255,255)
-wallJumpBtn.BackgroundColor3 = Color3.fromRGB(0,170,255)
-wallJumpBtn.Parent = movementTab
-Instance.new("UICorner", wallJumpBtn).CornerRadius = UDim.new(0,10)
-
-local wallJumpEnabled = false
-local jumpPower = humanoid.JumpPower
-
-wallJumpBtn.MouseButton1Click:Connect(function()
-	wallJumpEnabled = not wallJumpEnabled
-	if wallJumpEnabled then
-		wallJumpBtn.Text = "Wall Jump: ON"
-		wallJumpBtn.BackgroundColor3 = Color3.fromRGB(0,255,170)
-	else
-		wallJumpBtn.Text = "Wall Jump: OFF"
-		wallJumpBtn.BackgroundColor3 = Color3.fromRGB(0,170,255)
-	end
-end)
-
-local function isNearWall()
-	local char = player.Character
-	if not char then return false end
-	local root = char:FindFirstChild("HumanoidRootPart")
-	if not root then return false end
-	local directions = {
-		Vector3.new(4,0,0),
-		Vector3.new(-4,0,0),
-		Vector3.new(0,0,4),
-		Vector3.new(0,0,-4)
-	}
-	for _, dir in pairs(directions) do
-		local ray = Ray.new(root.Position, dir)
-		local hitPart = workspace:FindPartOnRayWithIgnoreList(ray, {char})
-		if hitPart then return true end
-	end
-	return false
+	minus.MouseButton1Click:Connect(function()
+		currentSpeed = math.max(8, currentSpeed - 2)
+		local hum,_ = getHumanoid()
+		hum.WalkSpeed = currentSpeed
+		speedLabel.Text = "Speed: "..currentSpeed
+	end)
+	plus.MouseButton1Click:Connect(function()
+		currentSpeed = math.min(80, currentSpeed + 2)
+		local hum,_ = getHumanoid()
+		hum.WalkSpeed = currentSpeed
+		speedLabel.Text = "Speed: "..currentSpeed
+	end)
 end
 
+-- Booster Button
+do
+	local boosterBtn = Instance.new("TextButton")
+	boosterBtn.Size = UDim2.new(0.8,0,0,45)
+	boosterBtn.Position = UDim2.new(0.1,0,0.3,0)
+	boosterBtn.Text = "Booster (58)"
+	boosterBtn.Font = Enum.Font.GothamBold
+	boosterBtn.TextSize = 18
+	boosterBtn.TextColor3 = Color3.fromRGB(255,255,255)
+	boosterBtn.BackgroundColor3 = Color3.fromRGB(170,0,255)
+	boosterBtn.Parent = movementTab
+	Instance.new("UICorner", boosterBtn).CornerRadius = UDim.new(0,10)
+
+	boosterBtn.MouseButton1Click:Connect(function()
+		currentSpeed = 58
+		local hum,_ = getHumanoid()
+		hum.WalkSpeed = currentSpeed
+		speedLabel.Text = "Speed: "..currentSpeed
+	end)
+end
+
+-- Jump Height
+do
+	local jumpLabel = Instance.new("TextLabel")
+	jumpLabel.Size = UDim2.new(1,0,0,30)
+	jumpLabel.Position = UDim2.new(0,0,0.45,0)
+	jumpLabel.Text = "Jump: "..currentJump
+	jumpLabel.Font = Enum.Font.GothamBold
+	jumpLabel.TextSize = 16
+	jumpLabel.TextColor3 = Color3.fromRGB(255,255,255)
+	jumpLabel.BackgroundTransparency = 1
+	jumpLabel.TextXAlignment = Enum.TextXAlignment.Left
+	jumpLabel.Parent = movementTab
+
+	local jumpMinus = Instance.new("TextButton")
+	jumpMinus.Size = UDim2.new(0.35,0,0,45)
+	jumpMinus.Position = UDim2.new(0.1,0,0.5,0)
+	jumpMinus.Text = "-"
+	jumpMinus.Font = Enum.Font.GothamBold
+	jumpMinus.TextSize = 28
+	jumpMinus.TextColor3 = Color3.fromRGB(255,255,255)
+	jumpMinus.BackgroundColor3 = Color3.fromRGB(40,40,40)
+	jumpMinus.Parent = movementTab
+	Instance.new("UICorner", jumpMinus).CornerRadius = UDim.new(0,10)
+
+	local jumpPlus = Instance.new("TextButton")
+	jumpPlus.Size = UDim2.new(0.35,0,0,45)
+	jumpPlus.Position = UDim2.new(0.55,0,0.5,0)
+	jumpPlus.Text = "+"
+	jumpPlus.Font = Enum.Font.GothamBold
+	jumpPlus.TextSize = 28
+	jumpPlus.TextColor3 = Color3.fromRGB(255,255,255)
+	jumpPlus.BackgroundColor3 = Color3.fromRGB(40,40,40)
+	jumpPlus.Parent = movementTab
+	Instance.new("UICorner", jumpPlus).CornerRadius = UDim.new(0,10)
+
+	jumpMinus.MouseButton1Click:Connect(function()
+		currentJump = math.max(20, currentJump - 5)
+		local hum,_ = getHumanoid()
+		hum.JumpPower = currentJump
+		jumpLabel.Text = "Jump: "..currentJump
+	end)
+	jumpPlus.MouseButton1Click:Connect(function()
+		currentJump = math.min(150, currentJump + 5)
+		local hum,_ = getHumanoid()
+		hum.JumpPower = currentJump
+		jumpLabel.Text = "Jump: "..currentJump
+	end)
+end
+
+-- Wall Jump
+do
+	local wallJumpBtn = Instance.new("TextButton")
+	wallJumpBtn.Size = UDim2.new(0.8,0,0,45)
+	wallJumpBtn.Position = UDim2.new(0.1,0,0.65,0)
+	wallJumpBtn.Text = "Wall Jump: OFF"
+	wallJumpBtn.Font = Enum.Font.GothamBold
+	wallJumpBtn.TextSize = 18
+	wallJumpBtn.TextColor3 = Color3.fromRGB(255,255,255)
+	wallJumpBtn.BackgroundColor3 = Color3.fromRGB(0,170,255)
+	wallJumpBtn.Parent = movementTab
+	Instance.new("UICorner", wallJumpBtn).CornerRadius = UDim.new(0,10)
+
+	wallJumpBtn.MouseButton1Click:Connect(function()
+		wallJumpEnabled = not wallJumpEnabled
+		if wallJumpEnabled then
+			wallJumpBtn.Text = "Wall Jump: ON"
+			wallJumpBtn.BackgroundColor3 = Color3.fromRGB(0,255,170)
+		else
+			wallJumpBtn.Text = "Wall Jump: OFF"
+			wallJumpBtn.BackgroundColor3 = Color3.fromRGB(0,170,255)
+		end
+	end)
+end
+
+-- Wall Jump Logic
 RunService.RenderStepped:Connect(function()
 	if wallJumpEnabled then
-		local char = player.Character
-		if not char then return end
-		local hum = char:FindFirstChild("Humanoid")
-		if not hum then return end
-		if UIS:IsKeyDown(Enum.KeyCode.Space) and isNearWall() then
-			hum:ChangeState(Enum.HumanoidStateType.Jumping)
-			hum.JumpPower = jumpPower * 1.2
+		local hum, root = getHumanoid()
+		if UIS:IsKeyDown(Enum.KeyCode.Space) then
+			local nearWall = false
+			local directions = {Vector3.new(4,0,0), Vector3.new(-4,0,0), Vector3.new(0,0,4), Vector3.new(0,0,-4)}
+			for _, dir in pairs(directions) do
+				local ray = Ray.new(root.Position, dir)
+				local part = workspace:FindPartOnRayWithIgnoreList(ray, {player.Character})
+				if part then nearWall = true break end
+			end
+			if nearWall then
+				hum:ChangeState(Enum.HumanoidStateType.Jumping)
+				hum.JumpPower = currentJump*1.2
+			else
+				hum.JumpPower = currentJump
+			end
 		else
-			hum.JumpPower = jumpPower
+			hum.JumpPower = currentJump
 		end
 	end
 end)
 
 -- ===== PLAYER TAB =====
 local followPlatform
+local following = false
 
--- Rainbow helper
 local function makeRainbowPlatform(platform)
 	local hue = 0
 	spawn(function()
@@ -306,7 +326,7 @@ local function makeRainbowPlatform(platform)
 	end)
 end
 
--- Platform
+-- Platform Button
 local platformBtn = Instance.new("TextButton")
 platformBtn.Size = UDim2.new(0.8,0,0,45)
 platformBtn.Position = UDim2.new(0.1,0,0.15,0)
@@ -319,10 +339,7 @@ platformBtn.Parent = playerTab
 Instance.new("UICorner", platformBtn).CornerRadius = UDim.new(0,10)
 
 platformBtn.MouseButton1Click:Connect(function()
-	local char = player.Character
-	if not char then return end
-	local root = char:FindFirstChild("HumanoidRootPart")
-	if not root then return end
+	local _, root = getHumanoid()
 	if followPlatform then followPlatform:Destroy() end
 	local platform = Instance.new("Part")
 	platform.Size = Vector3.new(120,2,120)
@@ -335,7 +352,7 @@ platformBtn.MouseButton1Click:Connect(function()
 	makeRainbowPlatform(platform)
 end)
 
--- Follow Platform
+-- Follow Platform Button
 local followBtn = Instance.new("TextButton")
 followBtn.Size = UDim2.new(0.8,0,0,45)
 followBtn.Position = UDim2.new(0.1,0,0.3,0)
@@ -347,12 +364,8 @@ followBtn.BackgroundColor3 = Color3.fromRGB(0,255,170)
 followBtn.Parent = playerTab
 Instance.new("UICorner", followBtn).CornerRadius = UDim.new(0,10)
 
-local following = false
 followBtn.MouseButton1Click:Connect(function()
-	local char = player.Character
-	if not char then return end
-	local root = char:FindFirstChild("HumanoidRootPart")
-	if not root then return end
+	local _, root = getHumanoid()
 	if following then
 		following = false
 		if followPlatform then followPlatform:Destroy() end
@@ -370,14 +383,14 @@ followBtn.MouseButton1Click:Connect(function()
 		following = true
 		spawn(function()
 			while following and followPlatform and root.Parent do
-				followPlatform.CFrame = CFrame.new(root.Position.X, root.Position.Y - 4, root.Position.Z)
+				followPlatform.CFrame = CFrame.new(root.Position.X, root.Position.Y-4, root.Position.Z)
 				task.wait(0.03)
 			end
 		end)
 	end
 end)
 
--- Self-Lag
+-- ===== SELF-LAG =====
 local lagBtn = Instance.new("TextButton")
 lagBtn.Size = UDim2.new(0.8,0,0,45)
 lagBtn.Position = UDim2.new(0.1,0,0.45,0)
@@ -417,7 +430,34 @@ lagBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- FPS Counter
+-- ===== FPS COUNTER =====
 local fpsLabel = Instance.new("TextLabel")
-fpsLabel.Size = UDim2.new(0.8,0,0,30)
-fpsLabel.Position =
+fpsLabel.Size = UDim2.new(0,100,0,30)
+fpsLabel.Position = UDim2.new(0.01,0,0.95,0)
+fpsLabel.BackgroundTransparency = 0.5
+fpsLabel.BackgroundColor3 = Color3.fromRGB(0,0,0)
+fpsLabel.TextColor3 = Color3.fromRGB(255,255,255)
+fpsLabel.TextSize = 14
+fpsLabel.Font = Enum.Font.GothamBold
+fpsLabel.Text = "FPS: 0"
+fpsLabel.Parent = gui
+Instance.new("UICorner", fpsLabel).CornerRadius = UDim.new(0,6)
+
+local lastTime = tick()
+local frames = 0
+RunService.RenderStepped:Connect(function()
+	frames = frames + 1
+	if tick() - lastTime >= 1 then
+		fpsLabel.Text = "FPS: "..frames
+		frames = 0
+		lastTime = tick()
+	end
+end)
+
+-- ===== RESPAWN SAFE =====
+player.CharacterAdded:Connect(function()
+	task.wait(1)
+	local hum,_ = getHumanoid()
+	hum.WalkSpeed = currentSpeed
+	hum.JumpPower = currentJump
+end)
